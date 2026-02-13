@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IT Ticketing Kanban</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <h1>IT-Ticketing Board</h1>
+        <p>Organisiere IT-Probleme im Team über ein Kanban-Board.</p>
+      </div>
+      <label class="search">
+        Suche
+        <input id="searchInput" type="search" placeholder="Titel, Beschreibung oder Melder:in" />
+      </label>
+    </header>
+
+    <main class="board-layout">
+      <div id="board" class="board" aria-live="polite">
+        <article class="column" data-status="Backlog">
+          <h3>Backlog</h3>
+          <div class="ticket-list"></div>
+        </article>
+        <article class="column" data-status="In Arbeit">
+          <h3>In Arbeit</h3>
+          <div class="ticket-list"></div>
+        </article>
+        <article class="column" data-status="Warten">
+          <h3>Warten</h3>
+          <div class="ticket-list"></div>
+        </article>
+        <article class="column" data-status="Erledigt">
+          <h3>Erledigt</h3>
+          <div class="ticket-list"></div>
+        </article>
+      </div>
+    </main>
+
+    <button id="openDialogButton" class="fab" type="button" aria-label="Neues Ticket">+</button>
+
+    <dialog id="ticketDialog" class="ticket-dialog">
+      <form id="ticketForm" method="dialog" class="dialog-content">
+        <header>
+          <h2>Neues Ticket</h2>
+          <button id="closeDialogButton" class="close-dialog" type="button" aria-label="Dialog schließen">×</button>
+        </header>
+
+        <label>
+          Titel
+          <input id="title" name="title" type="text" maxlength="100" required />
+        </label>
+
+        <label>
+          Beschreibung
+          <textarea id="description" name="description" rows="4" maxlength="500" required></textarea>
+        </label>
+
+        <label>
+          Priorität
+          <select id="priority" name="priority">
+            <option value="Niedrig">Niedrig</option>
+            <option value="Mittel" selected>Mittel</option>
+            <option value="Hoch">Hoch</option>
+          </select>
+        </label>
+
+        <label>
+          Melder:in
+          <input id="reporter" name="reporter" type="text" maxlength="60" required />
+        </label>
+
+        <footer>
+          <button class="secondary" id="cancelDialogButton" type="button">Abbrechen</button>
+          <button type="submit">Ticket anlegen</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <template id="ticketTemplate">
+      <article class="ticket" draggable="true">
+        <header>
+          <h4 class="ticket-title"></h4>
+          <span class="priority"></span>
+        </header>
+        <p class="ticket-description"></p>
+        <footer>
+          <small class="ticket-meta"></small>
+          <button type="button" class="delete">Löschen</button>
+        </footer>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
