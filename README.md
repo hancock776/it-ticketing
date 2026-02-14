@@ -11,6 +11,7 @@ Kleine Organisations-App, mit der du IT-Probleme als Tickets erfassen und über 
 - Drag & Drop zwischen den Spalten und Neuordnung innerhalb jeder Spalte
 - Suche über Titel und Beschreibung
 - Tickets per Klick im Dialog bearbeiten: inkl. Spaltenwechsel, Kommentare und Löschen
+- Kommentare werden auf Karten als Anzahl angezeigt; Detailansicht als Nachrichten im geöffneten Dialog mit einzeiligem Eingabefeld + Senden-Button
 - Automatisches Speichern beim Verlassen des Bearbeiten-Dialogs (Esc/außerhalb klicken)
 - Speicherung im Browser per `localStorage`
 

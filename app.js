@@ -7,6 +7,7 @@ const state = {
   draggingTicketId: null,
   isDragging: false,
   editingTicketId: null,
+  editingCommentsDraft: [],
   newTicketStatus: DEFAULT_STATUS,
 };
 
@@ -20,21 +21,31 @@ const editForm = document.getElementById("editTicketForm");
 const editDialog = document.getElementById("editTicketDialog");
 const closeEditDialogButton = document.getElementById("closeEditDialogButton");
 const deleteInEditDialogButton = document.getElementById("deleteInEditDialogButton");
+const newCommentInput = document.getElementById("newCommentInput");
+const sendCommentButton = document.getElementById("sendCommentButton");
+const editCommentsPreview = document.getElementById("editCommentsPreview");
 const searchInput = document.getElementById("searchInput");
 const columns = [...document.querySelectorAll(".column")];
 const ticketTemplate = document.getElementById("ticketTemplate");
 
 addTicketButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    const status = button.dataset.status || DEFAULT_STATUS;
-    openCreateDialog(status);
+    openCreateDialog(button.dataset.status || DEFAULT_STATUS);
   });
 });
 
 closeDialogButton.addEventListener("click", closeDialog);
 cancelDialogButton.addEventListener("click", closeDialog);
-
 closeEditDialogButton.addEventListener("click", closeEditDialog);
+
+newCommentInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addCommentFromInput();
+  }
+});
+
+sendCommentButton.addEventListener("click", addCommentFromInput);
 
 editDialog.addEventListener("cancel", (event) => {
   event.preventDefault();
@@ -89,6 +100,7 @@ editForm.addEventListener("submit", (event) => {
   renderBoard();
 
   state.editingTicketId = null;
+  state.editingCommentsDraft = [];
   editForm.reset();
   editDialog.close();
 });
@@ -124,7 +136,6 @@ columns.forEach((column) => {
     if (!ticketId) return;
 
     const beforeTicketId = getDropReferenceTicketId(list, event.clientY);
-
     moveTicket(ticketId, status, beforeTicketId);
   });
 });
@@ -145,17 +156,24 @@ function openCreateDialog(status) {
 
 function openEditDialog(ticket) {
   state.editingTicketId = ticket.id;
+  state.editingCommentsDraft = [...(ticket.comments || [])];
+
   document.getElementById("editTitle").value = ticket.title;
   document.getElementById("editDescription").value = ticket.description;
   document.getElementById("editPriority").value = ticket.priority;
   document.getElementById("editStatus").value = ticket.status;
-  document.getElementById("editComments").value = (ticket.comments || []).join("\n");
+  newCommentInput.value = "";
+  renderDialogCommentsPreview(state.editingCommentsDraft);
+
   editDialog.showModal();
   document.getElementById("editTitle").focus();
 }
 
 function closeEditDialog() {
   editForm.reset();
+  newCommentInput.value = "";
+  renderDialogCommentsPreview([]);
+  state.editingCommentsDraft = [];
   state.editingTicketId = null;
   editDialog.close();
 }
@@ -169,6 +187,9 @@ function autoSaveAndCloseEditDialog() {
     }
 
     editForm.reset();
+    newCommentInput.value = "";
+    renderDialogCommentsPreview([]);
+    state.editingCommentsDraft = [];
     state.editingTicketId = null;
   }
 
@@ -181,7 +202,6 @@ function saveEditedTicketFromForm() {
   const description = data.get("editDescription").toString().trim();
   const priority = data.get("editPriority").toString();
   const status = data.get("editStatus").toString();
-  const comments = parseComments(data.get("editComments").toString());
 
   if (!title || !description || !status) return false;
 
@@ -192,16 +212,27 @@ function saveEditedTicketFromForm() {
   ticket.description = description;
   ticket.priority = priority;
   ticket.status = status;
-  ticket.comments = comments;
+  ticket.comments = [...state.editingCommentsDraft];
 
   return true;
 }
 
-function parseComments(rawComments) {
-  return rawComments
-    .split("\n")
-    .map((comment) => comment.trim())
-    .filter(Boolean);
+function addCommentFromInput() {
+  if (!state.editingTicketId) return;
+
+  const newComment = newCommentInput.value.trim();
+  if (!newComment) return;
+
+  state.editingCommentsDraft.push(newComment);
+  newCommentInput.value = "";
+  renderDialogCommentsPreview(state.editingCommentsDraft);
+
+  const ticket = state.tickets.find((entry) => entry.id === state.editingTicketId);
+  if (ticket) {
+    ticket.comments = [...state.editingCommentsDraft];
+    persistTickets();
+    renderBoard();
+  }
 }
 
 function moveTicket(ticketId, newStatus, beforeTicketId) {
@@ -222,9 +253,7 @@ function moveTicket(ticketId, newStatus, beforeTicketId) {
 function getInsertIndex(tickets, status, beforeTicketId) {
   if (beforeTicketId) {
     const beforeIndex = tickets.findIndex((ticket) => ticket.id === beforeTicketId);
-    if (beforeIndex !== -1) {
-      return beforeIndex;
-    }
+    if (beforeIndex !== -1) return beforeIndex;
   }
 
   let lastStatusIndex = -1;
@@ -243,10 +272,7 @@ function getDropReferenceTicketId(list, y) {
   for (const card of cards) {
     const box = card.getBoundingClientRect();
     const beforeBoundary = box.top + Math.min(24, box.height * 0.35);
-
-    if (y < beforeBoundary) {
-      return card.dataset.id;
-    }
+    if (y < beforeBoundary) return card.dataset.id;
   }
 
   return null;
@@ -259,22 +285,21 @@ function renderBoard() {
     list.innerHTML = "";
 
     const filtered = state.tickets.filter((ticket) => {
-      const matchesStatus = ticket.status === status;
       const commentText = (ticket.comments || []).join(" ");
       const searchableText = `${ticket.title} ${ticket.description} ${commentText}`.toLowerCase();
-      const matchesQuery = !state.query || searchableText.includes(state.query);
-      return matchesStatus && matchesQuery;
+      return ticket.status === status && (!state.query || searchableText.includes(state.query));
     });
 
     filtered.forEach((ticket) => {
       const fragment = ticketTemplate.content.cloneNode(true);
       const card = fragment.querySelector(".ticket");
-
+      const priorityBadge = card.querySelector(".priority");
       card.dataset.id = ticket.id;
       card.querySelector(".ticket-title").textContent = ticket.title;
       card.querySelector(".ticket-description").textContent = ticket.description;
-      card.querySelector(".priority").textContent = ticket.priority;
-      card.querySelector(".ticket-meta").textContent = `${formatDate(ticket.createdAt)} · ${formatCommentCount(ticket.comments)}`;
+      priorityBadge.textContent = ticket.priority;
+      priorityBadge.className = `priority priority-${ticket.priority.toLowerCase()}`;
+      card.querySelector(".ticket-meta").textContent = formatCommentCount(ticket.comments);
 
       card.addEventListener("click", () => {
         if (state.isDragging) return;
@@ -302,16 +327,28 @@ function renderBoard() {
   });
 }
 
-function formatCommentCount(comments = []) {
-  const count = comments.length;
-  return count === 1 ? "1 Kommentar" : `${count} Kommentare`;
+function renderDialogCommentsPreview(comments = []) {
+  editCommentsPreview.innerHTML = "";
+
+  if (!comments.length) {
+    const empty = document.createElement("p");
+    empty.className = "dialog-comments-empty";
+    empty.textContent = "Noch keine Kommentare vorhanden.";
+    editCommentsPreview.appendChild(empty);
+    return;
+  }
+
+  comments.forEach((comment) => {
+    const item = document.createElement("p");
+    item.className = "comment-message";
+    item.textContent = comment;
+    editCommentsPreview.appendChild(item);
+  });
 }
 
-function formatDate(iso) {
-  return new Intl.DateTimeFormat("de-DE", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(iso));
+function formatCommentCount(comments = []) {
+  const count = comments.length;
+  return count === 1 ? "💬 1 Kommentar" : `💬 ${count} Kommentare`;
 }
 
 function persistTickets() {
@@ -322,7 +359,6 @@ function loadTickets() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-
     return parsed.map((ticket) => ({
       ...ticket,
       comments: Array.isArray(ticket.comments) ? ticket.comments : [],
