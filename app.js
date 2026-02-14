@@ -58,9 +58,6 @@ columns.forEach((column) => {
 
   list.addEventListener("dragover", (event) => {
     event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = "move";
-    }
     column.classList.add("drop-target");
   });
 
@@ -77,7 +74,8 @@ columns.forEach((column) => {
     const ticketId = state.draggingTicketId || event.dataTransfer?.getData("text/ticket-id");
     if (!ticketId) return;
 
-    const beforeTicketId = getDropReferenceTicketId(list, event.clientY);
+    const beforeElement = getDragAfterElement(list, event.clientY);
+    const beforeTicketId = beforeElement?.dataset.id ?? null;
 
     moveTicket(ticketId, status, beforeTicketId);
   });
@@ -121,19 +119,22 @@ function getInsertIndex(tickets, status, beforeTicketId) {
   return lastStatusIndex + 1;
 }
 
-function getDropReferenceTicketId(list, y) {
+function getDragAfterElement(list, y) {
   const cards = [...list.querySelectorAll(".ticket:not(.dragging)")];
 
-  for (const card of cards) {
-    const box = card.getBoundingClientRect();
-    const beforeBoundary = box.top + Math.min(24, box.height * 0.35);
+  return cards.reduce(
+    (closest, card) => {
+      const box = card.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
 
-    if (y < beforeBoundary) {
-      return card.dataset.id;
-    }
-  }
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: card };
+      }
 
-  return null;
+      return closest;
+    },
+    { offset: Number.NEGATIVE_INFINITY, element: null },
+  ).element;
 }
 
 function renderBoard() {
