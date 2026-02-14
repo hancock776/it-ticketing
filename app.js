@@ -19,7 +19,6 @@ const cancelDialogButton = document.getElementById("cancelDialogButton");
 const editForm = document.getElementById("editTicketForm");
 const editDialog = document.getElementById("editTicketDialog");
 const closeEditDialogButton = document.getElementById("closeEditDialogButton");
-const cancelEditDialogButton = document.getElementById("cancelEditDialogButton");
 const deleteInEditDialogButton = document.getElementById("deleteInEditDialogButton");
 const searchInput = document.getElementById("searchInput");
 const columns = [...document.querySelectorAll(".column")];
@@ -36,7 +35,17 @@ closeDialogButton.addEventListener("click", closeDialog);
 cancelDialogButton.addEventListener("click", closeDialog);
 
 closeEditDialogButton.addEventListener("click", closeEditDialog);
-cancelEditDialogButton.addEventListener("click", closeEditDialog);
+
+editDialog.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  autoSaveAndCloseEditDialog();
+});
+
+editDialog.addEventListener("click", (event) => {
+  if (event.target === editDialog) {
+    autoSaveAndCloseEditDialog();
+  }
+});
 
 deleteInEditDialogButton.addEventListener("click", () => {
   if (!state.editingTicketId) return;
@@ -56,12 +65,12 @@ ticketForm.addEventListener("submit", (event) => {
     title: data.get("title").toString().trim(),
     description: data.get("description").toString().trim(),
     priority: data.get("priority").toString(),
-    reporter: data.get("reporter").toString().trim(),
     status: state.newTicketStatus,
+    comments: [],
     createdAt: new Date().toISOString(),
   };
 
-  if (!ticket.title || !ticket.description || !ticket.reporter) return;
+  if (!ticket.title || !ticket.description) return;
 
   state.tickets.unshift(ticket);
   persistTickets();
@@ -71,28 +80,17 @@ ticketForm.addEventListener("submit", (event) => {
 
 editForm.addEventListener("submit", (event) => {
   event.preventDefault();
-
   if (!state.editingTicketId) return;
 
-  const data = new FormData(editForm);
-  const title = data.get("editTitle").toString().trim();
-  const description = data.get("editDescription").toString().trim();
-  const priority = data.get("editPriority").toString();
-  const status = data.get("editStatus").toString();
-
-  if (!title || !description || !status) return;
-
-  const ticket = state.tickets.find((entry) => entry.id === state.editingTicketId);
-  if (!ticket) return;
-
-  ticket.title = title;
-  ticket.description = description;
-  ticket.priority = priority;
-  ticket.status = status;
+  const hasSaved = saveEditedTicketFromForm();
+  if (!hasSaved) return;
 
   persistTickets();
   renderBoard();
-  closeEditDialog();
+
+  state.editingTicketId = null;
+  editForm.reset();
+  editDialog.close();
 });
 
 searchInput.addEventListener("input", () => {
@@ -151,6 +149,7 @@ function openEditDialog(ticket) {
   document.getElementById("editDescription").value = ticket.description;
   document.getElementById("editPriority").value = ticket.priority;
   document.getElementById("editStatus").value = ticket.status;
+  document.getElementById("editComments").value = (ticket.comments || []).join("\n");
   editDialog.showModal();
   document.getElementById("editTitle").focus();
 }
@@ -159,6 +158,50 @@ function closeEditDialog() {
   editForm.reset();
   state.editingTicketId = null;
   editDialog.close();
+}
+
+function autoSaveAndCloseEditDialog() {
+  if (state.editingTicketId) {
+    const hasSaved = saveEditedTicketFromForm();
+    if (hasSaved) {
+      persistTickets();
+      renderBoard();
+    }
+
+    editForm.reset();
+    state.editingTicketId = null;
+  }
+
+  editDialog.close();
+}
+
+function saveEditedTicketFromForm() {
+  const data = new FormData(editForm);
+  const title = data.get("editTitle").toString().trim();
+  const description = data.get("editDescription").toString().trim();
+  const priority = data.get("editPriority").toString();
+  const status = data.get("editStatus").toString();
+  const comments = parseComments(data.get("editComments").toString());
+
+  if (!title || !description || !status) return false;
+
+  const ticket = state.tickets.find((entry) => entry.id === state.editingTicketId);
+  if (!ticket) return false;
+
+  ticket.title = title;
+  ticket.description = description;
+  ticket.priority = priority;
+  ticket.status = status;
+  ticket.comments = comments;
+
+  return true;
+}
+
+function parseComments(rawComments) {
+  return rawComments
+    .split("\n")
+    .map((comment) => comment.trim())
+    .filter(Boolean);
 }
 
 function moveTicket(ticketId, newStatus, beforeTicketId) {
@@ -217,7 +260,8 @@ function renderBoard() {
 
     const filtered = state.tickets.filter((ticket) => {
       const matchesStatus = ticket.status === status;
-      const searchableText = `${ticket.title} ${ticket.description} ${ticket.reporter}`.toLowerCase();
+      const commentText = (ticket.comments || []).join(" ");
+      const searchableText = `${ticket.title} ${ticket.description} ${commentText}`.toLowerCase();
       const matchesQuery = !state.query || searchableText.includes(state.query);
       return matchesStatus && matchesQuery;
     });
@@ -230,7 +274,7 @@ function renderBoard() {
       card.querySelector(".ticket-title").textContent = ticket.title;
       card.querySelector(".ticket-description").textContent = ticket.description;
       card.querySelector(".priority").textContent = ticket.priority;
-      card.querySelector(".ticket-meta").textContent = `${ticket.reporter} · ${formatDate(ticket.createdAt)}`;
+      card.querySelector(".ticket-meta").textContent = `${formatDate(ticket.createdAt)} · ${formatCommentCount(ticket.comments)}`;
 
       card.addEventListener("click", () => {
         if (state.isDragging) return;
@@ -258,6 +302,11 @@ function renderBoard() {
   });
 }
 
+function formatCommentCount(comments = []) {
+  const count = comments.length;
+  return count === 1 ? "1 Kommentar" : `${count} Kommentare`;
+}
+
 function formatDate(iso) {
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "short",
@@ -272,7 +321,12 @@ function persistTickets() {
 function loadTickets() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+
+    return parsed.map((ticket) => ({
+      ...ticket,
+      comments: Array.isArray(ticket.comments) ? ticket.comments : [],
+    }));
   } catch {
     return [];
   }

@@ -14,7 +14,7 @@
       </div>
       <label class="search">
         Suche
-        <input id="searchInput" type="search" placeholder="Titel, Beschreibung oder Melder:in" />
+        <input id="searchInput" type="search" placeholder="Titel oder Beschreibung" />
       </label>
     </header>
 
@@ -78,11 +78,6 @@
           </select>
         </label>
 
-        <label>
-          Melder:in
-          <input id="reporter" name="reporter" type="text" maxlength="60" required />
-        </label>
-
         <footer>
           <button class="secondary" id="cancelDialogButton" type="button">Abbrechen</button>
           <button type="submit">Ticket anlegen</button>
@@ -127,12 +122,16 @@
           </select>
         </label>
 
+
+        <label>
+          Kommentare (eine Zeile = ein Kommentar)
+          <textarea id="editComments" name="editComments" rows="5" maxlength="1200" placeholder="z. B.
+- Nutzer angerufen
+- Logfile geprüft"></textarea>
+        </label>
+
         <footer class="edit-actions">
-          <button class="danger" id="deleteInEditDialogButton" type="button">Ticket löschen</button>
-          <div class="edit-actions-right">
-            <button class="secondary" id="cancelEditDialogButton" type="button">Abbrechen</button>
-            <button type="submit">Änderungen speichern</button>
-          </div>
+          <button class="danger icon-delete" id="deleteInEditDialogButton" type="button" aria-label="Ticket löschen" title="Ticket löschen">🗑️</button>
         </footer>
       </form>
     </dialog>
