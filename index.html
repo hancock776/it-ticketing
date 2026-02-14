@@ -21,30 +21,41 @@
     <main class="board-layout">
       <div id="board" class="board" aria-live="polite">
         <article class="column" data-status="Backlog">
-          <h3>Backlog</h3>
+          <header class="column-header">
+            <h3>Backlog</h3>
+            <button type="button" class="add-ticket" data-status="Backlog" aria-label="Ticket in Backlog anlegen">+</button>
+          </header>
           <div class="ticket-list"></div>
         </article>
         <article class="column" data-status="In Arbeit">
-          <h3>In Arbeit</h3>
+          <header class="column-header">
+            <h3>In Arbeit</h3>
+            <button type="button" class="add-ticket" data-status="In Arbeit" aria-label="Ticket in In Arbeit anlegen">+</button>
+          </header>
           <div class="ticket-list"></div>
         </article>
         <article class="column" data-status="Warten">
-          <h3>Warten</h3>
+          <header class="column-header">
+            <h3>Warten</h3>
+            <button type="button" class="add-ticket" data-status="Warten" aria-label="Ticket in Warten anlegen">+</button>
+          </header>
           <div class="ticket-list"></div>
         </article>
         <article class="column" data-status="Erledigt">
-          <h3>Erledigt</h3>
+          <header class="column-header">
+            <h3>Erledigt</h3>
+            <button type="button" class="add-ticket" data-status="Erledigt" aria-label="Ticket in Erledigt anlegen">+</button>
+          </header>
           <div class="ticket-list"></div>
         </article>
       </div>
     </main>
 
-    <button id="openDialogButton" class="fab" type="button" aria-label="Neues Ticket">+</button>
 
     <dialog id="ticketDialog" class="ticket-dialog">
       <form id="ticketForm" method="dialog" class="dialog-content">
         <header>
-          <h2>Neues Ticket</h2>
+          <h2>Neues Ticket <span id="newTicketStatusLabel"></span></h2>
           <button id="closeDialogButton" class="close-dialog" type="button" aria-label="Dialog schließen">×</button>
         </header>
 
@@ -79,6 +90,53 @@
       </form>
     </dialog>
 
+
+    <dialog id="editTicketDialog" class="ticket-dialog">
+      <form id="editTicketForm" method="dialog" class="dialog-content">
+        <header>
+          <h2>Ticket bearbeiten</h2>
+          <button id="closeEditDialogButton" class="close-dialog" type="button" aria-label="Bearbeiten-Dialog schließen">×</button>
+        </header>
+
+        <label>
+          Titel
+          <input id="editTitle" name="editTitle" type="text" maxlength="100" required />
+        </label>
+
+        <label>
+          Beschreibung
+          <textarea id="editDescription" name="editDescription" rows="4" maxlength="500" required></textarea>
+        </label>
+
+        <label>
+          Priorität
+          <select id="editPriority" name="editPriority">
+            <option value="Niedrig">Niedrig</option>
+            <option value="Mittel">Mittel</option>
+            <option value="Hoch">Hoch</option>
+          </select>
+        </label>
+
+        <label>
+          Spalte
+          <select id="editStatus" name="editStatus">
+            <option value="Backlog">Backlog</option>
+            <option value="In Arbeit">In Arbeit</option>
+            <option value="Warten">Warten</option>
+            <option value="Erledigt">Erledigt</option>
+          </select>
+        </label>
+
+        <footer class="edit-actions">
+          <button class="danger" id="deleteInEditDialogButton" type="button">Ticket löschen</button>
+          <div class="edit-actions-right">
+            <button class="secondary" id="cancelEditDialogButton" type="button">Abbrechen</button>
+            <button type="submit">Änderungen speichern</button>
+          </div>
+        </footer>
+      </form>
+    </dialog>
+
     <template id="ticketTemplate">
       <article class="ticket" draggable="true">
         <header>
@@ -88,7 +146,6 @@
         <p class="ticket-description"></p>
         <footer>
           <small class="ticket-meta"></small>
-          <button type="button" class="delete">Löschen</button>
         </footer>
       </article>
     </template>

@@ -5,11 +5,12 @@ Kleine Organisations-App, mit der du IT-Probleme als Tickets erfassen und über 
 ## Funktionen
 
 - Vollflächiges Kanban-Board über die gesamte Seite
-- Neues Ticket per **+ Button** in einem Dialog
+- Neues Ticket über **+ Buttons in den Spalten-Kopfzeilen** (Ticket wird direkt in dieser Spalte angelegt)
 - Ticket-Erfassung (Titel, Beschreibung, Priorität, Melder:in)
 - Vier Kanban-Spalten: **Backlog**, **In Arbeit**, **Warten**, **Erledigt**
 - Drag & Drop zwischen den Spalten und Neuordnung innerhalb jeder Spalte
 - Suche über Titel, Beschreibung und Melder:in
+- Tickets per Klick im Dialog bearbeiten: inkl. Spaltenwechsel per Dropdown und Löschen
 - Speicherung im Browser per `localStorage`
 
 ## Start

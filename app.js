@@ -5,24 +5,47 @@ const state = {
   tickets: loadTickets(),
   query: "",
   draggingTicketId: null,
+  isDragging: false,
+  editingTicketId: null,
+  newTicketStatus: DEFAULT_STATUS,
 };
 
 const ticketForm = document.getElementById("ticketForm");
 const ticketDialog = document.getElementById("ticketDialog");
-const openDialogButton = document.getElementById("openDialogButton");
+const newTicketStatusLabel = document.getElementById("newTicketStatusLabel");
+const addTicketButtons = [...document.querySelectorAll(".add-ticket")];
 const closeDialogButton = document.getElementById("closeDialogButton");
 const cancelDialogButton = document.getElementById("cancelDialogButton");
+const editForm = document.getElementById("editTicketForm");
+const editDialog = document.getElementById("editTicketDialog");
+const closeEditDialogButton = document.getElementById("closeEditDialogButton");
+const cancelEditDialogButton = document.getElementById("cancelEditDialogButton");
+const deleteInEditDialogButton = document.getElementById("deleteInEditDialogButton");
 const searchInput = document.getElementById("searchInput");
 const columns = [...document.querySelectorAll(".column")];
 const ticketTemplate = document.getElementById("ticketTemplate");
 
-openDialogButton.addEventListener("click", () => {
-  ticketDialog.showModal();
-  document.getElementById("title").focus();
+addTicketButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const status = button.dataset.status || DEFAULT_STATUS;
+    openCreateDialog(status);
+  });
 });
 
 closeDialogButton.addEventListener("click", closeDialog);
 cancelDialogButton.addEventListener("click", closeDialog);
+
+closeEditDialogButton.addEventListener("click", closeEditDialog);
+cancelEditDialogButton.addEventListener("click", closeEditDialog);
+
+deleteInEditDialogButton.addEventListener("click", () => {
+  if (!state.editingTicketId) return;
+
+  state.tickets = state.tickets.filter((ticket) => ticket.id !== state.editingTicketId);
+  persistTickets();
+  renderBoard();
+  closeEditDialog();
+});
 
 ticketForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -34,7 +57,7 @@ ticketForm.addEventListener("submit", (event) => {
     description: data.get("description").toString().trim(),
     priority: data.get("priority").toString(),
     reporter: data.get("reporter").toString().trim(),
-    status: DEFAULT_STATUS,
+    status: state.newTicketStatus,
     createdAt: new Date().toISOString(),
   };
 
@@ -43,8 +66,33 @@ ticketForm.addEventListener("submit", (event) => {
   state.tickets.unshift(ticket);
   persistTickets();
   renderBoard();
-  ticketForm.reset();
-  ticketDialog.close();
+  closeDialog();
+});
+
+editForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  if (!state.editingTicketId) return;
+
+  const data = new FormData(editForm);
+  const title = data.get("editTitle").toString().trim();
+  const description = data.get("editDescription").toString().trim();
+  const priority = data.get("editPriority").toString();
+  const status = data.get("editStatus").toString();
+
+  if (!title || !description || !status) return;
+
+  const ticket = state.tickets.find((entry) => entry.id === state.editingTicketId);
+  if (!ticket) return;
+
+  ticket.title = title;
+  ticket.description = description;
+  ticket.priority = priority;
+  ticket.status = status;
+
+  persistTickets();
+  renderBoard();
+  closeEditDialog();
 });
 
 searchInput.addEventListener("input", () => {
@@ -58,6 +106,9 @@ columns.forEach((column) => {
 
   list.addEventListener("dragover", (event) => {
     event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "move";
+    }
     column.classList.add("drop-target");
   });
 
@@ -74,8 +125,7 @@ columns.forEach((column) => {
     const ticketId = state.draggingTicketId || event.dataTransfer?.getData("text/ticket-id");
     if (!ticketId) return;
 
-    const beforeElement = getDragAfterElement(list, event.clientY);
-    const beforeTicketId = beforeElement?.dataset.id ?? null;
+    const beforeTicketId = getDropReferenceTicketId(list, event.clientY);
 
     moveTicket(ticketId, status, beforeTicketId);
   });
@@ -83,7 +133,32 @@ columns.forEach((column) => {
 
 function closeDialog() {
   ticketForm.reset();
+  state.newTicketStatus = DEFAULT_STATUS;
+  newTicketStatusLabel.textContent = `(${DEFAULT_STATUS})`;
   ticketDialog.close();
+}
+
+function openCreateDialog(status) {
+  state.newTicketStatus = status;
+  newTicketStatusLabel.textContent = `(${status})`;
+  ticketDialog.showModal();
+  document.getElementById("title").focus();
+}
+
+function openEditDialog(ticket) {
+  state.editingTicketId = ticket.id;
+  document.getElementById("editTitle").value = ticket.title;
+  document.getElementById("editDescription").value = ticket.description;
+  document.getElementById("editPriority").value = ticket.priority;
+  document.getElementById("editStatus").value = ticket.status;
+  editDialog.showModal();
+  document.getElementById("editTitle").focus();
+}
+
+function closeEditDialog() {
+  editForm.reset();
+  state.editingTicketId = null;
+  editDialog.close();
 }
 
 function moveTicket(ticketId, newStatus, beforeTicketId) {
@@ -119,22 +194,19 @@ function getInsertIndex(tickets, status, beforeTicketId) {
   return lastStatusIndex + 1;
 }
 
-function getDragAfterElement(list, y) {
+function getDropReferenceTicketId(list, y) {
   const cards = [...list.querySelectorAll(".ticket:not(.dragging)")];
 
-  return cards.reduce(
-    (closest, card) => {
-      const box = card.getBoundingClientRect();
-      const offset = y - box.top - box.height / 2;
+  for (const card of cards) {
+    const box = card.getBoundingClientRect();
+    const beforeBoundary = box.top + Math.min(24, box.height * 0.35);
 
-      if (offset < 0 && offset > closest.offset) {
-        return { offset, element: card };
-      }
+    if (y < beforeBoundary) {
+      return card.dataset.id;
+    }
+  }
 
-      return closest;
-    },
-    { offset: Number.NEGATIVE_INFINITY, element: null },
-  ).element;
+  return null;
 }
 
 function renderBoard() {
@@ -160,15 +232,14 @@ function renderBoard() {
       card.querySelector(".priority").textContent = ticket.priority;
       card.querySelector(".ticket-meta").textContent = `${ticket.reporter} · ${formatDate(ticket.createdAt)}`;
 
-      const deleteButton = card.querySelector(".delete");
-      deleteButton.addEventListener("click", () => {
-        state.tickets = state.tickets.filter((entry) => entry.id !== ticket.id);
-        persistTickets();
-        renderBoard();
+      card.addEventListener("click", () => {
+        if (state.isDragging) return;
+        openEditDialog(ticket);
       });
 
       card.addEventListener("dragstart", (event) => {
         state.draggingTicketId = ticket.id;
+        state.isDragging = true;
         card.classList.add("dragging");
         event.dataTransfer?.setData("text/ticket-id", ticket.id);
       });
@@ -177,6 +248,9 @@ function renderBoard() {
         state.draggingTicketId = null;
         card.classList.remove("dragging");
         columns.forEach((col) => col.classList.remove("drop-target"));
+        setTimeout(() => {
+          state.isDragging = false;
+        }, 0);
       });
 
       list.appendChild(fragment);
@@ -204,4 +278,5 @@ function loadTickets() {
   }
 }
 
+newTicketStatusLabel.textContent = `(${DEFAULT_STATUS})`;
 renderBoard();
